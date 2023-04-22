@@ -1,0 +1,10 @@
+WARNING: ../pv2ooo/pv2ooo-sim.v:154: $readmemh: Standard inconsistency, following 1364-2005.
+VCD info: dumpfile ../tests/build/vmh/parcv2-i2o2.vcd opened for output.
+*** FAILED *** (status =         28)
+--------------------------------------------
+ STATS                                      
+--------------------------------------------
+ status     =         28
+ num_cycles =         25
+ num_inst   =         17
+ ipc        = 0.680000
