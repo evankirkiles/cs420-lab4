@@ -24,12 +24,65 @@ module parc_CoreReorderBuffer
   output [ 4:0] rob_commit_rf_waddr
 );
 
-  wire rob_alloc_req_rdy   = 1'b1;
-  wire rob_alloc_resp_slot = 4'b0;
-  wire rob_commit_wen      = 1'b0;
-  wire rob_commit_rf_waddr = 1'b0;
-  wire rob_commit_slot     = 4'b0;
-  
+  // Head and tail pointers
+  reg [3:0] head_ptr;
+  reg [3:0] tail_ptr; 
+
+  // Arrays of registers for ROB
+  reg [15:0] valid_bits;
+  reg        pending  [15:0];
+  reg [4:0]  preg     [15:0];
+
+  genvar r;
+  generate
+  for (r = 0; r < 16; r = r + 1)
+  begin: rob_entry
+    always @(posedge clk) begin
+      if (reset) begin
+        pending[r] <= 1'b0;
+        preg[r] <= 5'b0;
+      end
+    end
+  end
+  endgenerate
+
+  // Register updating
+  always @(posedge clk) begin
+    if (reset) begin
+      head_ptr    <= 4'b0;
+      tail_ptr    <= 4'b0;
+      valid_bits  <= 16'b0;
+    end else begin
+
+      // Allocation (create entries for registers)
+      if (rob_alloc_req_val && rob_alloc_req_rdy) begin
+        valid_bits <= valid_bits | (1 << tail_ptr);
+        pending[tail_ptr] <= 1'b1;
+        preg[tail_ptr] <= rob_alloc_req_preg;
+        tail_ptr <= tail_ptr + 1;
+      end
+      
+      // Fill (mark entries as ready to commit)
+      if (rob_fill_val) begin
+        pending[rob_fill_slot] <= 1'b0;
+      end
+      
+      // Commit (write rob_data entries to register file)
+      if (rob_commit_wen) begin
+        valid_bits <= valid_bits & ~(1 << head_ptr);
+        head_ptr <= head_ptr + 1;
+      end
+
+    end
+  end
+
+  // Output signals
+  assign rob_alloc_req_rdy = !(valid_bits == 16'hFFFF);
+  assign rob_alloc_resp_slot = tail_ptr;
+  assign rob_commit_wen = !pending[head_ptr] && valid_bits[head_ptr];
+  assign rob_commit_rf_waddr = preg[head_ptr];
+  assign rob_commit_slot = head_ptr;
+
 endmodule
 
 `endif
