@@ -29,18 +29,20 @@ module parc_CoreReorderBuffer
   reg [3:0] tail_ptr; 
 
   // Arrays of registers for ROB
-  reg [15:0] valid_bits;
+  reg [15:0] valid; // make this a 16-bit register so we can use reduction operator
   reg        pending  [15:0];
   reg [4:0]  preg     [15:0];
 
+  // Resetting pending / physical register
   genvar r;
   generate
   for (r = 0; r < 16; r = r + 1)
   begin: rob_entry
     always @(posedge clk) begin
       if (reset) begin
+        valid[r]   <= 1'b0;
         pending[r] <= 1'b0;
-        preg[r] <= 5'b0;
+        preg[r]    <= 5'b0;
       end
     end
   end
@@ -51,15 +53,14 @@ module parc_CoreReorderBuffer
     if (reset) begin
       head_ptr    <= 4'b0;
       tail_ptr    <= 4'b0;
-      valid_bits  <= 16'b0;
     end else begin
 
       // Allocation (create entries for registers)
       if (rob_alloc_req_val && rob_alloc_req_rdy) begin
-        valid_bits <= valid_bits | (1 << tail_ptr);
+        valid[tail_ptr]   <= 1'b1;
         pending[tail_ptr] <= 1'b1;
-        preg[tail_ptr] <= rob_alloc_req_preg;
-        tail_ptr <= tail_ptr + 1;
+        preg[tail_ptr]    <= rob_alloc_req_preg;
+        tail_ptr          <= tail_ptr + 1;
       end
       
       // Fill (mark entries as ready to commit)
@@ -69,7 +70,7 @@ module parc_CoreReorderBuffer
       
       // Commit (write rob_data entries to register file)
       if (rob_commit_wen) begin
-        valid_bits <= valid_bits & ~(1 << head_ptr);
+        valid[head_ptr] <= 1'b0;
         head_ptr <= head_ptr + 1;
       end
 
@@ -77,9 +78,9 @@ module parc_CoreReorderBuffer
   end
 
   // Output signals
-  assign rob_alloc_req_rdy = !(valid_bits == 16'hFFFF);
+  assign rob_alloc_req_rdy = !(&valid);
   assign rob_alloc_resp_slot = tail_ptr;
-  assign rob_commit_wen = !pending[head_ptr] && valid_bits[head_ptr];
+  assign rob_commit_wen = !pending[head_ptr] && valid[head_ptr];
   assign rob_commit_rf_waddr = preg[head_ptr];
   assign rob_commit_slot = head_ptr;
 
