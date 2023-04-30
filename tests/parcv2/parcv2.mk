@@ -39,4 +39,7 @@ parcv2_srcs += \
   parcv2-rem.S \
   parcv2-remu.S \
   parcv2-i2o2.S \
+  parcv2-rob-bypass.S \
+  parcv2-waw.S \
+  parcv2-bypipc.S \
 
